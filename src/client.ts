@@ -4,46 +4,43 @@
 import crypto from "node:crypto";
 import net from "node:net";
 
-/* 2048 is the prime number size (modulus size)
-   it will automatically create predefined base(generator) and modulus for us */
-const dh = crypto.createDiffieHellman(800);
-
-/* this will generate both public and private
-   keys but will return public key only */
-const clientPublicKey = dh.generateKeys();
-
-const clientPrivateKey = dh.getPrivateKey(); // we need to call the generateKeys first to get this
-const clientVersion = Buffer.from([3, 0, 0, 0]);
+const ENCRYPTED = 0x06;
+const UNDOCUMENTED = 0x08;
+const UNENCRYPTED = 0x03;
+const RTMP_SIG_SIZE = 1536;
 
 const socket = net.createConnection({ host: "127.0.0.1", port: 1935 }, () => {
-  socket.write(clientVersion);
-  socket.write(clientPublicKey.toString("base64"));
+  socket.write(Buffer.from([UNENCRYPTED]));
+  let C1 = createC1Sig(UNENCRYPTED);
+  // let dhpkl = getClientDhOffset;
+  socket.write(C1);
 });
 
-let sharedSecretKey = "";
-
-socket.on("data", (data) => {
-  if (!sharedSecretKey.length) {
-    const serverPublicKey = Buffer.from(data.toString("base64"), "base64");
-
-    //compute shared secret key (this is the final key)
-    const sharedSecretKey = dh.computeSecret(serverPublicKey);
-    const serverHmac = data.subarray(-32);
-    const hmac = crypto.createHmac("sha256", sharedSecretKey);
-    const expectedHmac = hmac.update(clientPublicKey).digest();
-
-    if (!expectedHmac.equals(serverHmac)) {
-      console.log("INVALID HMAC");
-      socket.destroy();
-      return;
-    }
-
-    const clientHmac = crypto.createHmac("sha256", sharedSecretKey).update(serverPublicKey).digest();
-    socket.write(clientHmac);
-  }
-});
+socket.on("data", (data) => {});
 
 socket.on("close", () => {
   console.log("SERVER DISCONNECTED");
 });
 socket.on("error", (err) => console.log(err));
+
+function createC1Sig(commandType: number) {
+  if (ENCRYPTED) {
+    /*
+  if encrypted
+  0:3        : 32-bit system time, network byte ordered (htonl)
+  4:7        : Client Version (e.g., 0x09 0x0 0x7c 0x2)
+  8:11       : Obfuscated pointer to "Genuine FP" key 
+  12:1531    : Random Data, 128-bit Diffie-Hellmann key, and "Genuine FP" key.
+  1532:1535  : Obfuscated pointer to the 128-bit Diffie-Hellmann key 
+  */
+    const clientSig = Buffer.alloc(RTMP_SIG_SIZE);
+    clientSig.writeUInt32BE(Math.floor(Date.now() / 1000));
+
+    return clientSig;
+  } else {
+    //unencrypted. most cases
+    let timeStamp = Buffer.from([Math.floor(Date.now() / 1000)]);
+    let C0 = Buffer.alloc(1, UNENCRYPTED);
+    return Buffer.concat([timeStamp, crypto.randomBytes(1532)]);
+  }
+}
