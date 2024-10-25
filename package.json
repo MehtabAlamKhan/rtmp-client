@@ -1,0 +1,20 @@
+{
+  "name": "rtmp-client",
+  "version": "1.0.0",
+  "description": "RTMP client",
+  "main": "server.js",
+  "scripts": {
+    "build": "npx tsc",
+    "prestart": "npm run build",
+    "start": "node dist/client.js",
+    "watch": "tsc -w",
+    "client": "node --watch dist/client.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.7.9",
+    "typescript": "^5.6.3"
+  }
+}
