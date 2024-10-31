@@ -2,7 +2,7 @@
   "name": "rtmp-client",
   "version": "1.0.0",
   "description": "RTMP client",
-  "main": "server.js",
+  "main": "client.js",
   "scripts": {
     "build": "npx tsc",
     "prestart": "npm run build",
